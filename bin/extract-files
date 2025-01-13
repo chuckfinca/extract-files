@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 dir [-e ext1 ext2...] [-f file1 file2...] [-o output_dir] [-t]"
+    echo "  -e: file extensions to extract"
+    echo "  -f: specific filenames to extract"
+    echo "  -o: output directory (default: ~/Desktop/extracted_files)"
+    echo "  -t: update tree file before extraction (tree file will be included automatically)"
+    exit 1
+}
+
+[ $# -lt 2 ] && usage
+
+src="$1"; shift
+out="$HOME/Desktop/extracted_files"
+update_tree=false
+
+# Initialize empty find conditions
+find_conditions=()
+
+# Process arguments
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -e) shift
+            while [ $# -gt 0 ] && [[ ! "$1" =~ ^- ]]; do
+                [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
+                find_conditions+=( -name "*.$1" ! -name "__init__.py" )
+                shift
+            done ;;
+        -f) shift
+            while [ $# -gt 0 ] && [[ ! "$1" =~ ^- ]]; do
+                [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
+                find_conditions+=( -name "$1" )
+                shift
+            done ;;
+        -o) shift; out="$1"; shift ;;
+        -t) update_tree=true; shift ;;
+        *) shift ;;
+    esac
+done
+
+# Update tree file if flag is set
+if [ "$update_tree" = true ]; then
+    if ! command -v tree &> /dev/null; then
+        echo "Warning: tree command not found. Skipping tree update."
+    else
+        echo "Updating tree file..."
+        original_dir="$PWD"
+        cd "$src" && tree > tree
+        cd "$original_dir"
+
+        # Add tree file to find conditions
+        [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
+        find_conditions+=( -name "tree" )
+    fi
+fi
+
+[ ${#find_conditions[@]} -eq 0 ] && echo "Specify -e or -f options" && exit 1
+
+rm -rf "$out"
+mkdir -p "$out"
+find "$src" -type f \( "${find_conditions[@]}" \) -exec cp -v {} "$out/" \;
+echo "Files extracted to: $out"
+ls -l "$out"

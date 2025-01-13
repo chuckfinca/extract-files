@@ -1,0 +1,16 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Run tests
+      run: |
+        chmod +x tests/test_extract_files.sh
+        cd tests
+        ./test_extract_files.sh
