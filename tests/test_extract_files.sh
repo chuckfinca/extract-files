@@ -4,9 +4,9 @@
 setup() {
     TEST_DIR=$(mktemp -d)
     mkdir -p "$TEST_DIR/src"
-    touch "$TEST_DIR/src/test.py"
-    touch "$TEST_DIR/src/test.java"
-    touch "$TEST_DIR/src/config.yaml"
+    echo "print('hello world')" > "$TEST_DIR/src/test.py"
+    echo "public class Test {}" > "$TEST_DIR/src/test.java"
+    echo "key: value" > "$TEST_DIR/src/config.yaml"
 }
 
 # Clean up test environment
