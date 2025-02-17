@@ -1,65 +1,155 @@
 #!/bin/bash
 
-# Function to display usage
 usage() {
-    echo "Usage: $0 dir [-e ext1 ext2...] [-f file1 file2...] [-o output_dir] [-t]"
-    echo "  -e: file extensions to extract"
-    echo "  -f: specific filenames to extract"
-    echo "  -o: output directory (default: ~/Desktop/extracted_files)"
-    echo "  -t: update tree file before extraction (tree file will be included automatically)"
+    echo "Usage: $(basename "$0") SOURCE_DIR [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  -e EXT      Extract files with extension EXT (can be specified multiple times)"
+    echo "  -f FILE     Extract specific file (can be specified multiple times)"
+    echo "  -x FILE     Exclude specific file"
+    echo "  -X DIR      Exclude directory"
+    echo "  -o DIR      Output directory (required)"
+    echo "  --help      Show this help message"
     exit 1
 }
 
-[ $# -lt 2 ] && usage
+# Initialize arrays for extensions and files
+extensions=()
+files=()
+exclude_files=()
+exclude_dirs=()
+output_dir=""
+source_dir=""
 
-src="$1"; shift
-out="$HOME/Desktop/extracted_files"
-update_tree=false
-
-# Initialize empty find conditions
-find_conditions=()
-
-# Process arguments
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -e) shift
-            while [ $# -gt 0 ] && [[ ! "$1" =~ ^- ]]; do
-                [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
-                find_conditions+=( -name "*.$1" ! -name "__init__.py" )
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -e)
+            while [[ $# -gt 1 && ! $2 =~ ^- ]]; do
                 shift
-            done ;;
-        -f) shift
-            while [ $# -gt 0 ] && [[ ! "$1" =~ ^- ]]; do
-                [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
-                find_conditions+=( -name "$1" )
-                shift
-            done ;;
-        -o) shift; out="$1"; shift ;;
-        -t) update_tree=true; shift ;;
-        *) shift ;;
+                extensions+=("$1")
+            done
+            ;;
+        -f)
+            shift
+            [[ $# -eq 0 ]] && usage
+            files+=("$1")
+            ;;
+        -x)
+            shift
+            [[ $# -eq 0 ]] && usage
+            exclude_files+=("$1")
+            ;;
+        -X)
+            shift
+            [[ $# -eq 0 ]] && usage
+            exclude_dirs+=("$1")
+            ;;
+        -o)
+            shift
+            [[ $# -eq 0 ]] && usage
+            output_dir="$1"
+            ;;
+        --help)
+            usage
+            ;;
+        -*)
+            echo "Error: Unknown option: $1" >&2
+            usage
+            ;;
+        *)
+            if [ -z "$source_dir" ]; then
+                source_dir="$1"
+            else
+                echo "Error: Multiple source directories specified" >&2
+                usage
+            fi
+            ;;
     esac
+    shift
 done
 
-# Update tree file if flag is set
-if [ "$update_tree" = true ]; then
-    if ! command -v tree &> /dev/null; then
-        echo "Warning: tree command not found. Skipping tree update."
-    else
-        echo "Updating tree file..."
-        original_dir="$PWD"
-        cd "$src" && tree > tree
-        cd "$original_dir"
-
-        # Add tree file to find conditions
-        [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
-        find_conditions+=( -name "tree" )
-    fi
+# Validate inputs
+if [ -z "$source_dir" ]; then
+    echo "Error: No source directory specified" >&2
+    usage
 fi
 
-[ ${#find_conditions[@]} -eq 0 ] && echo "Specify -e or -f options" && exit 1
+if [ -z "$output_dir" ]; then
+    echo "Error: No output directory specified (-o required)" >&2
+    usage
+fi
 
-rm -rf "$out"
-mkdir -p "$out"
-find "$src" -type f \( "${find_conditions[@]}" \) -exec cp -v {} "$out/" \;
-echo "Files extracted to: $out"
-ls -l "$out"
+if [ ${#extensions[@]} -eq 0 ] && [ ${#files[@]} -eq 0 ]; then
+    echo "Error: No extensions (-e) or files (-f) specified" >&2
+    usage
+fi
+
+# Create output directory
+mkdir -p "$output_dir"
+
+# Function to check if file should be excluded
+should_exclude() {
+    local file="$1"
+    local basename
+    basename=$(basename "$file")
+    local dirname
+    dirname=$(dirname "$file")
+    
+    # Check excluded files
+    for excluded in "${exclude_files[@]}"; do
+        if [ "$basename" = "$excluded" ]; then
+            return 0
+        fi
+    done
+    
+    # Check excluded directories
+    for excluded in "${exclude_dirs[@]}"; do
+        if [[ "$dirname" == *"/$excluded"* ]]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Function to check if file matches criteria
+should_extract() {
+    local file="$1"
+    local basename
+    basename=$(basename "$file")
+    
+    # Check specific files
+    if [ ${#files[@]} -gt 0 ]; then
+        for target in "${files[@]}"; do
+            if [ "$basename" = "$target" ]; then
+                return 0
+            fi
+        done
+        return 1
+    fi
+    
+    # Check extensions
+    for ext in "${extensions[@]}"; do
+        if [[ "$file" == *".$ext" ]]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Main extraction logic
+echo "Files extracted to: $output_dir"
+while IFS= read -r -d '' file; do
+    if should_extract "$file" && ! should_exclude "$file"; then
+        rel_path="${file#$source_dir/}"
+        target="$output_dir/$rel_path"
+        target_dir=$(dirname "$target")
+        mkdir -p "$target_dir"
+        cp "$file" "$target"
+        echo " -> $rel_path"
+    fi
+done < <(find "$source_dir" -type f -print0)
+
+exit 0
