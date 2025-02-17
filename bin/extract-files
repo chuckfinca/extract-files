@@ -4,11 +4,12 @@ usage() {
     echo "Usage: $(basename "$0") SOURCE_DIR [OPTIONS]"
     echo
     echo "Options:"
-    echo "  -e EXT      Extract files with extension EXT (can be specified multiple times)"
+    echo "  -e EXT      Extract files with extension EXT (can specify multiple)"
     echo "  -f FILE     Extract specific file (can be specified multiple times)"
     echo "  -x FILE     Exclude specific file"
-    echo "  -X DIR      Exclude directory"
-    echo "  -o DIR      Output directory (required)"
+    echo "  -X DIR      Exclude directories (can specify multiple)"
+    echo "  -o DIR      Output directory (default: ~/Desktop/extracted_files)"
+    echo "  -t          Update tree file"
     echo "  --help      Show this help message"
     exit 1
 }
@@ -18,8 +19,9 @@ extensions=()
 files=()
 exclude_files=()
 exclude_dirs=()
-output_dir=""
+output_dir="$HOME/Desktop/extracted_files"
 source_dir=""
+update_tree=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -41,14 +43,18 @@ while [[ $# -gt 0 ]]; do
             exclude_files+=("$1")
             ;;
         -X)
-            shift
-            [[ $# -eq 0 ]] && usage
-            exclude_dirs+=("$1")
+            while [[ $# -gt 1 && ! $2 =~ ^- ]]; do
+                shift
+                exclude_dirs+=("$1")
+            done
             ;;
         -o)
             shift
             [[ $# -eq 0 ]] && usage
             output_dir="$1"
+            ;;
+        -t)
+            update_tree=true
             ;;
         --help)
             usage
@@ -76,13 +82,23 @@ if [ -z "$source_dir" ]; then
 fi
 
 if [ -z "$output_dir" ]; then
-    echo "Error: No output directory specified (-o required)" >&2
+    echo "Error: Invalid output directory" >&2
     usage
 fi
 
 if [ ${#extensions[@]} -eq 0 ] && [ ${#files[@]} -eq 0 ]; then
     echo "Error: No extensions (-e) or files (-f) specified" >&2
     usage
+fi
+
+# Process tree file if flag is set
+if [ "$update_tree" = true ]; then
+    if ! command -v tree &> /dev/null; then
+        echo "Warning: tree command not found. Skipping tree update."
+    else
+        echo "Updating tree file..."
+        tree "$source_dir" > "$source_dir/tree"
+    fi
 fi
 
 # Create output directory
@@ -139,8 +155,20 @@ should_extract() {
     return 1
 }
 
-# Main extraction logic
-echo "Files extracted to: $output_dir"
+# Build the prune conditions from exclude_dirs array
+prune_conditions=""
+if [ ${#exclude_dirs[@]} -gt 0 ]; then
+    prune_conditions="-type d \( "
+    for i in "${!exclude_dirs[@]}"; do
+        if [ $i -gt 0 ]; then
+            prune_conditions+=" -o "
+        fi
+        prune_conditions+="-name \"${exclude_dirs[$i]}\""
+    done
+    prune_conditions+=" \) -prune -o "
+fi
+
+# Use the constructed prune conditions in find
 while IFS= read -r -d '' file; do
     if should_extract "$file" && ! should_exclude "$file"; then
         rel_path="${file#$source_dir/}"
@@ -150,6 +178,6 @@ while IFS= read -r -d '' file; do
         cp "$file" "$target"
         echo " -> $rel_path"
     fi
-done < <(find "$source_dir" -type f -print0)
+done < <(eval "find \"\$source_dir\" $prune_conditions -type f -print0")
 
 exit 0
