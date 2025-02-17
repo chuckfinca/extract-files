@@ -7,10 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    
+    - name: Set up permissions
+      run: |
+        echo "Setting executable permissions..."
+        test -f "bin/extract-files" || { echo "Error: extract-files script not found"; exit 1; }
+        test -f "tests/test_extract_files.sh" || { echo "Error: test script not found"; exit 1; }
+        chmod 755 bin/extract-files
+        chmod 755 tests/test_extract_files.sh
+        ls -l bin/extract-files tests/test_extract_files.sh
     
     - name: Run tests
-      run: |
-        chmod +x tests/test_extract_files.sh
-        cd tests
-        ./test_extract_files.sh
+      run: ./tests/test_extract_files.sh
