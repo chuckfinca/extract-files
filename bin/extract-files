@@ -168,6 +168,9 @@ if [ ${#exclude_dirs[@]} -gt 0 ]; then
     prune_conditions+=" \) -prune -o "
 fi
 
+# Print the output directory before starting extraction
+echo "Files extracted to: $output_dir"
+
 # Use the constructed prune conditions in find
 while IFS= read -r -d '' file; do
     if should_extract "$file" && ! should_exclude "$file"; then

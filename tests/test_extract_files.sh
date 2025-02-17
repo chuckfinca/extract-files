@@ -121,9 +121,20 @@ test_no_conditions() {
 test_debug_output() {
     local temp_output
     temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -e py -o "$TEST_DIR/out")
+    echo "Actual output:"
+    echo "$temp_output"
+    echo "Checking for 'Files extracted to:'..."
+    echo "$temp_output" | grep -q "Files extracted to:" && \
+    echo "✓ Found 'Files extracted to:'" || echo "✗ Missing 'Files extracted to:'"
+    echo "Checking for ' -> '..."
+    echo "$temp_output" | grep -q " -> " && \
+    echo "✓ Found ' -> '" || echo "✗ Missing ' -> '"
+    
+    # Original test condition
     echo "$temp_output" | grep -q "Files extracted to:" && \
     echo "$temp_output" | grep -q " -> "
 }
+
 
 # Set up trap for cleanup after everything is defined
 trap cleanup EXIT
