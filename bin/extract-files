@@ -10,6 +10,7 @@ usage() {
     echo "  -X DIR      Exclude directories (can specify multiple)"
     echo "  -o DIR      Output directory (default: ~/Desktop/extracted_files)"
     echo "  -t          Update tree file"
+    echo "  -s FILE     Generate SQLite database schema from FILE to output dir"
     echo "  --help      Show this help message"
     exit 1
 }
@@ -22,6 +23,7 @@ exclude_dirs=()
 output_dir="$HOME/Desktop/extracted_files"
 source_dir=""
 update_tree=false
+db_file=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -56,6 +58,11 @@ while [[ $# -gt 0 ]]; do
         -t)
             update_tree=true
             ;;
+        -s)
+            shift
+            [[ $# -eq 0 ]] && usage
+            db_file="$1"
+            ;;
         --help)
             usage
             ;;
@@ -86,8 +93,8 @@ if [ -z "$output_dir" ]; then
     usage
 fi
 
-if [ ${#extensions[@]} -eq 0 ] && [ ${#files[@]} -eq 0 ]; then
-    echo "Error: No extensions (-e) or files (-f) specified" >&2
+if [ ${#extensions[@]} -eq 0 ] && [ ${#files[@]} -eq 0 ] && [ -z "$db_file" ]; then
+    echo "Error: No extensions (-e), files (-f), or database (-s) specified" >&2
     usage
 fi
 
@@ -169,6 +176,8 @@ while IFS= read -r -d '' file; do
         target="$output_dir/$basename"
         cp "$file" "$target"
         echo " -> $basename"
+        
+
     fi
 done < <(eval "find \"\$source_dir\" $prune_conditions -type f -print0")
 
@@ -179,6 +188,23 @@ if [ "$update_tree" = true ]; then
     else
         echo "Updating tree file..."
         tree "$source_dir" > "$output_dir/tree"
+    fi
+fi
+
+# Generate database schema if specified
+if [ -n "$db_file" ]; then
+    if ! command -v sqlite3 &> /dev/null; then
+        echo "Warning: sqlite3 command not found. Skipping schema generation."
+    else
+        if [ -f "$db_file" ]; then
+            db_basename=$(basename "$db_file")
+            schema_file="${db_basename%.db}_schema.sql"
+            echo "Generating database schema from $db_file..."
+            sqlite3 "$db_file" .schema > "$output_dir/$schema_file"
+            echo " -> $schema_file"
+        else
+            echo "Error: Database file not found: $db_file" >&2
+        fi
     fi
 fi
 

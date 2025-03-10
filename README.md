@@ -5,8 +5,10 @@ A flexible utility for extracting files from directories based on extensions or 
 ## Features
 - Extract files by extension(s)
 - Extract specific files by name
+- Exclude specific files or directories
 - Customize output directory
 - Optional tree structure generation
+- Generate SQLite database schema for .db files
 
 ## Installation
 
@@ -25,14 +27,18 @@ sudo ln -s "$(pwd)/bin/extract-files" /usr/local/bin/
 ## Usage
 
 ```bash
-extract-files dir [-e ext1 ext2...] [-f file1 file2...] [-o output_dir] [-t]
+extract-files dir [-e ext1 ext2...] [-f file1 file2...] [-x exclude] [-X exclude_dir] [-o output_dir] [-t] [-s]
 ```
 
 Options:
 - `-e`: File extensions to extract (e.g., -e py java cpp)
 - `-f`: Specific filenames to extract
+- `-x`: Exclude specific files
+- `-X`: Exclude specific directories
 - `-o`: Output directory (default: ~/Desktop/extracted_files)
-- `-t`: Update tree file before extraction
+- `-t`: Update tree file
+- `-s FILE`: Generate SQLite database schema from specified database file
+- `--help`: Show help message
 
 Examples:
 ```bash
@@ -44,6 +50,12 @@ extract-files ~/myproject -f config.yaml data.json
 
 # Extract to custom directory with tree
 extract-files ~/myproject -e py -o ~/extracted -t
+
+# Generate schema from a database without extracting it
+extract-files ~/myproject -s ~/databases/images_db.db
+
+# Extract Python files but exclude test directories
+extract-files ~/myproject -e py -X tests test
 ```
 
 ## Contributing
