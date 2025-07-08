@@ -140,15 +140,16 @@ should_extract() {
                 return 0
             fi
         done
-        return 1
     fi
     
-    # Check extensions
-    for ext in "${extensions[@]}"; do
-        if [[ "$file" == *".$ext" ]]; then
-            return 0
-        fi
-    done
+    # Check extensions (additive with files)
+    if [ ${#extensions[@]} -gt 0 ]; then
+        for ext in "${extensions[@]}"; do
+            if [[ "$file" == *".$ext" ]]; then
+                return 0
+            fi
+        done
+    fi
     
     return 1
 }
