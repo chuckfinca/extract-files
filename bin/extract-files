@@ -110,10 +110,13 @@ should_exclude() {
     basename=$(basename "$file")
     local dirname
     dirname=$(dirname "$file")
+    local relative_path
+    relative_path="${file#$source_dir/}"
     
     # Check excluded files
     for excluded in "${exclude_files[@]}"; do
-        if [ "$basename" = "$excluded" ]; then
+        # Check both basename and relative path
+        if [ "$basename" = "$excluded" ] || [ "$relative_path" = "$excluded" ]; then
             return 0
         fi
     done
@@ -133,11 +136,14 @@ should_extract() {
     local file="$1"
     local basename
     basename=$(basename "$file")
+    local relative_path
+    relative_path="${file#$source_dir/}"
     
     # Check specific files
     if [ ${#files[@]} -gt 0 ]; then
         for target in "${files[@]}"; do
-            if [ "$basename" = "$target" ]; then
+            # Check both basename and relative path
+            if [ "$basename" = "$target" ] || [ "$relative_path" = "$target" ]; then
                 return 0
             fi
         done
