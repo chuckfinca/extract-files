@@ -17,6 +17,7 @@ set -e
 setup() {
     TEST_DIR=$(mktemp -d)
     mkdir -p "$TEST_DIR/src/subdir"
+    mkdir -p "$TEST_DIR/src/config"
     
     # Create test files
     echo "print('hello world')" > "$TEST_DIR/src/test.py"
@@ -25,6 +26,9 @@ setup() {
     echo "print('another')" > "$TEST_DIR/src/another.py"
     echo "test" > "$TEST_DIR/src/skip.txt"
     echo "nested" > "$TEST_DIR/src/subdir/nested.py"
+    echo "config data" > "$TEST_DIR/src/config/app.conf"
+    echo "readme content" > "$TEST_DIR/src/README.md"
+    echo "package info" > "$TEST_DIR/src/package.json"
 }
 
 # Clean up test environment
@@ -100,6 +104,54 @@ test_specific_filename() {
     [ ! -f "$TEST_DIR/out/another.py" ]
 }
 
+# NEW TEST: Test multiple files with single -f
+test_multiple_files_single_flag() {
+    local temp_output
+    temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -f "test.py" "config.yaml" "package.json" -o "$TEST_DIR/out")
+    [ -f "$TEST_DIR/out/test.py" ] && \
+    [ -f "$TEST_DIR/out/config.yaml" ] && \
+    [ -f "$TEST_DIR/out/package.json" ] && \
+    [ ! -f "$TEST_DIR/out/test.java" ]
+}
+
+# NEW TEST: Test relative path file extraction
+test_relative_path_extraction() {
+    local temp_output
+    temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -f "subdir/nested.py" "config/app.conf" -o "$TEST_DIR/out")
+    [ -f "$TEST_DIR/out/nested.py" ] && \
+    [ -f "$TEST_DIR/out/app.conf" ] && \
+    [ ! -f "$TEST_DIR/out/test.py" ]
+}
+
+# NEW TEST: Test additive behavior of -e and -f
+test_additive_extensions_and_files() {
+    local temp_output
+    temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -e java -f "config.yaml" "README.md" -o "$TEST_DIR/out")
+    [ -f "$TEST_DIR/out/test.java" ] && \
+    [ -f "$TEST_DIR/out/config.yaml" ] && \
+    [ -f "$TEST_DIR/out/README.md" ] && \
+    [ ! -f "$TEST_DIR/out/test.py" ]
+}
+
+# NEW TEST: Test relative path exclusion
+test_relative_path_exclusion() {
+    local temp_output
+    temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -e py -x "subdir/nested.py" -o "$TEST_DIR/out")
+    [ -f "$TEST_DIR/out/test.py" ] && \
+    [ -f "$TEST_DIR/out/another.py" ] && \
+    [ ! -f "$TEST_DIR/out/nested.py" ]
+}
+
+# NEW TEST: Test multiple -f flags (backward compatibility)
+test_multiple_f_flags() {
+    local temp_output
+    temp_output=$($SCRIPT_PATH "$TEST_DIR/src" -f "test.py" -f "config.yaml" -f "package.json" -o "$TEST_DIR/out")
+    [ -f "$TEST_DIR/out/test.py" ] && \
+    [ -f "$TEST_DIR/out/config.yaml" ] && \
+    [ -f "$TEST_DIR/out/package.json" ] && \
+    [ ! -f "$TEST_DIR/out/test.java" ]
+}
+
 # Test help flag
 test_help_flag() {
     local temp_output
@@ -135,7 +187,6 @@ test_debug_output() {
     echo "$temp_output" | grep -q " -> "
 }
 
-
 # Set up trap for cleanup after everything is defined
 trap cleanup EXIT
 
@@ -146,10 +197,15 @@ setup
 failed=0
 tests=(
     "single_extension_extraction"
-    "multiple_extension_extraction"
+    "multiple_extension_extraction" 
     "file_exclusion"
     "directory_exclusion"
     "specific_filename"
+    "multiple_files_single_flag"
+    "relative_path_extraction"
+    "additive_extensions_and_files"
+    "relative_path_exclusion"
+    "multiple_f_flags"
     "help_flag"
     "invalid_option"
     "no_conditions"
