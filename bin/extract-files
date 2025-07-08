@@ -35,9 +35,10 @@ while [[ $# -gt 0 ]]; do
             done
             ;;
         -f)
-            shift
-            [[ $# -eq 0 ]] && usage
-            files+=("$1")
+            while [[ $# -gt 1 && ! $2 =~ ^- ]]; do
+                shift
+                files+=("$1")
+            done
             ;;
         -x)
             shift
@@ -127,7 +128,7 @@ should_exclude() {
     return 1
 }
 
-# Function to check if file matches criteria
+# Function to check if file matches criteria (now additive)
 should_extract() {
     local file="$1"
     local basename

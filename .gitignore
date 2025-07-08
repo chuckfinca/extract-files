@@ -9,3 +9,6 @@ extracted_files/
 *.swp
 .vscode/
 .idea/
+
+# Local tooling
+.extractrc
